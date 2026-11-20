@@ -7,4 +7,3 @@ npm-debug.log*
 
 # Local expert labels and generated pseudo-labels can contain sensitive-derived data.
 data/*landmarks*.csv
-

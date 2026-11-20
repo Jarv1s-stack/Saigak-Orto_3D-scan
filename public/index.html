@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111a24">
+    <meta name="description" content="Локальный прототип краниометрии по STL-сканам с врачебной проверкой.">
+    <title>Saigak-Orto — анализ 3D-скана головы</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script type="importmap" nonce="__CSP_NONCE__">
+      {
+        "imports": {
+          "three": "/vendor/three.module.js",
+          "three/addons/": "/vendor/"
+        }
+      }
+    </script>
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Saigak-Orto — начало">
+        <span class="brand-mark" aria-hidden="true">s</span>
+        <span class="brand-name">saigak<span>-orto</span></span>
+      </a>
+      <div class="topbar-right">
+        <span class="local-pill"><span class="local-dot"></span> Локальная обработка</span>
+        <span class="prototype-pill">ИССЛЕДОВАТЕЛЬСКИЙ ПРОТОТИП</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> AI FOR GREEN TECHNOLOGIES AND HEALTH CARE</div>
+          <h1>Краниометрия <span>по 3D-скану</span></h1>
+          <p>Измерения формы головы для экспертной оценки врачом.</p>
+        </div>
+        <div class="scan-identity" id="scan-identity" hidden>
+          <span>КОД СКАНА</span>
+          <strong id="scan-code">—</strong>
+        </div>
+      </section>
+
+      <div class="medical-notice" role="note">
+        <span class="notice-symbol" aria-hidden="true">i</span>
+        <p><strong>Не является медицинским устройством.</strong> Результаты прототипа не предназначены для самостоятельной диагностики или назначения лечения. Проверка ориентиров и всех измерений врачом обязательна.</p>
+      </div>
+
+      <section class="workspace">
+        <div class="left-column">
+          <section class="panel upload-panel" aria-labelledby="upload-title">
+            <div class="panel-heading">
+              <div>
+                <div class="section-label">01 / ИСХОДНЫЕ ДАННЫЕ</div>
+                <h2 id="upload-title">Загрузка STL-модели</h2>
+              </div>
+              <span class="format-tag">STL</span>
+            </div>
+
+            <label class="dropzone" id="dropzone" for="stl-input">
+              <input id="stl-input" type="file" accept=".stl,model/stl,application/sla">
+              <span class="upload-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 16V4m0 0L7 9m5-5 5 5M5 15v4a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <strong>Перетащите STL-файл сюда</strong>
+              <span class="drop-subtitle">или <span>выберите файл на устройстве</span></span>
+              <span class="file-hint">STL · до 100 МБ · файл остаётся на локальном сервере</span>
+            </label>
+
+            <div class="upload-error" id="upload-error" role="alert" hidden></div>
+            <div class="file-summary" id="file-summary" hidden>
+              <span class="file-cube" aria-hidden="true">◇</span>
+              <div class="file-summary-text"><strong id="file-name">—</strong><span id="file-meta">—</span></div>
+              <span class="quality-tag" id="quality-tag">Проверка</span>
+            </div>
+
+            <div class="quality-box" id="quality-box" hidden>
+              <div class="quality-box-heading"><span class="quality-dot"></span><strong id="quality-title">Проверка модели</strong></div>
+              <ul id="quality-list"></ul>
+            </div>
+
+            <div class="age-row">
+              <label for="age-months">Возраст на момент скана <span>(необязательно)</span></label>
+              <div class="age-input-wrap"><input id="age-months" type="number" min="0" max="18" step="1" placeholder="—"><span>мес.</span></div>
+            </div>
+
+            <button class="primary-button" id="review-save-button" type="button" disabled>
+              <span>Сохранить отметку врача</span>
+              <span class="button-arrow" aria-hidden="true">→</span>
+            </button>
+            <label class="review-check"><input id="reviewed-checkbox" type="checkbox"><span>Я, врач, проверил(а) ориентиры, качество и измерения</span></label>
+          </section>
+
+          <section class="panel settings-panel" aria-labelledby="settings-title">
+            <div class="panel-heading compact">
+              <div>
+                <div class="section-label">02 / КОРРЕКЦИЯ</div>
+                <h2 id="settings-title">Положение и масштаб</h2>
+              </div>
+            </div>
+            <div class="field-grid">
+              <label class="field">
+                <span>Масштаб</span>
+                <span class="input-with-unit"><input id="scale-input" type="number" min="0.001" max="100000" step="any" value="1"><span>мм / единицу</span></span>
+              </label>
+              <label class="field">
+                <span>Высота сечения <b id="slice-value">50%</b></span>
+                <input id="slice-input" type="range" min="10" max="90" value="50">
+              </label>
+              <label class="field">
+                <span>Поворот вокруг Z <b id="rotation-value">0°</b></span>
+                <input id="rotation-input" type="range" min="-180" max="180" value="0">
+              </label>
+              <label class="field">
+                <span>Угол диагоналей <b id="angle-value">30°</b></span>
+                <input id="angle-input" type="range" min="15" max="45" value="30">
+              </label>
+              <label class="field">
+                <span>Наклон X <b id="tilt-x-value">0°</b></span>
+                <input id="tilt-x-input" type="range" min="-90" max="90" value="0">
+              </label>
+              <label class="field">
+                <span>Наклон Y <b id="tilt-y-value">0°</b></span>
+                <input id="tilt-y-input" type="range" min="-90" max="90" value="0">
+              </label>
+              <label class="field">
+                <span>Передняя сторона головы</span>
+                <select id="anterior-direction">
+                  <option value="positive-y">Направлена к +Y</option>
+                  <option value="negative-y">Направлена к −Y</option>
+                </select>
+              </label>
+            </div>
+            <button class="secondary-button" id="recalculate-button" type="button" disabled>Пересчитать измерения</button>
+            <p class="settings-note">Сечение и ориентацию можно корректировать. После изменений нажмите «Пересчитать измерения».</p>
+          </section>
+        </div>
+
+        <div class="right-column">
+          <section class="panel viewer-panel" aria-labelledby="viewer-title">
+            <div class="panel-heading viewer-heading">
+              <div>
+                <div class="section-label">ИНТЕРАКТИВНАЯ МОДЕЛЬ</div>
+                <h2 id="viewer-title">3D-просмотр и разметка</h2>
+              </div>
+              <span class="drag-hint">Перетащите для вращения · колёсико для масштаба</span>
+            </div>
+            <div class="viewer-stage" id="viewer-stage">
+              <div class="viewer-placeholder" id="viewer-placeholder">
+                <div class="placeholder-orbit" aria-hidden="true"><span>+</span><i></i></div>
+                <strong>Загрузите 3D-модель головы</strong>
+                <span>Плоскость сечения, оси и диагонали появятся после загрузки STL</span>
+              </div>
+            </div>
+            <div class="viewer-legend">
+              <span><i class="legend-line axis-x"></i>Ширина X</span>
+              <span><i class="legend-line axis-y"></i>Длина Y</span>
+              <span><i class="legend-line diagonal"></i>Диагонали ±<b id="legend-angle">30°</b></span>
+              <span><i class="legend-line section"></i>Плоскость сечения</span>
+            </div>
+            <div class="landmark-tools">
+              <label for="landmark-select">Ручная точка</label>
+              <select id="landmark-select">
+                <option value="0-0">D1 · первая точка</option>
+                <option value="0-1">D1 · вторая точка</option>
+                <option value="1-0">D2 · первая точка</option>
+                <option value="1-1">D2 · вторая точка</option>
+              </select>
+              <button id="clear-landmarks" type="button" disabled>Сбросить</button>
+              <span id="landmark-hint">Выберите точку и щёлкните по контуру; для ручных D1/D2 отметьте все 4 точки.</span>
+            </div>
+            <div class="viewer-footnote">Автоматическая ориентация: главная ось сечения · анатомические ориентиры требуют проверки врача</div>
+          </section>
+
+          <section class="panel measurements-panel" aria-labelledby="measurements-title">
+            <div class="panel-heading">
+              <div>
+                <div class="section-label">03 / РЕЗУЛЬТАТЫ</div>
+                <h2 id="measurements-title">Краниометрические показатели</h2>
+              </div>
+              <span class="review-status" id="review-status">Ожидает проверки</span>
+            </div>
+
+            <div class="metrics-grid">
+              <article class="metric-card primary-metric"><span>CI <small>головной индекс</small></span><strong id="metric-ci">—</strong><em>без степени по CI</em></article>
+              <article class="metric-card"><span>CVAI <small>индекс асимметрии</small></span><strong id="metric-cvai">—</strong><em id="severity-value">—</em></article>
+              <article class="metric-card"><span>CVA <small>асимметрия диагоналей</small></span><strong id="metric-cva">—</strong><em>мм</em></article>
+              <article class="metric-card"><span>Длина L × ширина W</span><strong class="metric-pair" id="metric-dimensions">—</strong><em>мм</em></article>
+              <article class="metric-card"><span>Диагональ D1</span><strong id="metric-d1">—</strong><em>мм</em></article>
+              <article class="metric-card"><span>Диагональ D2</span><strong id="metric-d2">—</strong><em>мм</em></article>
+              <article class="metric-card wide-metric"><span>Периметр сечения</span><strong id="metric-perimeter">—</strong><em>мм</em></article>
+            </div>
+
+            <div class="asymmetry-map">
+              <div class="map-heading">
+                <div><strong>Карта асимметрии 2D-сечения</strong><span>Разность радиусов противоположных направлений · исследовательская оценка</span></div>
+                <span class="map-tag">НЕ КЛИНИЧЕСКАЯ ШКАЛА</span>
+              </div>
+              <div class="regional-asymmetry">
+                <div><span>Фронтальная</span><strong id="frontal-asymmetry">— мм</strong></div>
+                <div><span>Затылочная</span><strong id="occipital-asymmetry">— мм</strong></div>
+              </div>
+              <div id="surface-map" class="surface-map" aria-label="Радиальная карта асимметрии сечения"></div>
+              <p>Передняя сторона определяет направление +Y/−Y; установите её по ориентации скана и проверьте вручную. Эти значения не входят в опубликованную шкалу CVAI.</p>
+            </div>
+
+            <div class="formula-card">
+              <div class="formula-title"><span>ФОРМУЛЫ И ИНТЕРВАЛЫ</span><span class="formula-info">Значения без округления определяют категорию</span></div>
+              <p><b>CI</b> = 100 × W / L <span>· локальный профиль CI не утверждён, степень не присваивается</span></p>
+              <p><b>CVA</b> = |D1 − D2| <span>мм</span></p>
+              <p><b>CVAI</b> = 100 × |D1 − D2| / max(D1, D2)</p>
+              <div class="severity-scale">
+                <span>&lt;3,5% <b>ниже порога</b></span>
+                <span>3,5–&lt;6,25% <b>лёгкая</b></span>
+                <span>6,25–&lt;8,75% <b>умеренная</b></span>
+                <span>8,75–&lt;11% <b>тяжёлая</b></span>
+                <span>≥11% <b>очень тяжёлая</b></span>
+              </div>
+            </div>
+
+            <div class="report-actions">
+              <div><strong>Отчёт</strong><span>Анонимный код · качество · версия методики · отметка врача</span></div>
+              <div class="export-buttons">
+                <a class="export-button" id="export-pdf" href="#" aria-disabled="true">PDF</a>
+                <a class="export-button" id="export-csv" href="#" aria-disabled="true">CSV</a>
+                <a class="export-button" id="export-json" href="#" aria-disabled="true">JSON</a>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel method-panel">
+            <div class="method-icon" aria-hidden="true">ML</div>
+            <div class="method-copy">
+              <strong>Обучаемая модель ориентиров</strong>
+              <p id="model-status">ML-веса пока не обучены: требуются экспертные разметки анонимных сканов. Сейчас используются геометрические измерения с ручной проверкой врача.</p>
+            </div>
+            <a href="#methodology" id="method-link" class="method-link">Методика</a>
+          </section>
+        </div>
+      </section>
+
+      <section class="method-disclosure" id="methodology">
+        <h2>Методика и ограничения</h2>
+        <p>Автоматическая ориентация выравнивает главную ось наибольшего замкнутого горизонтального сечения вдоль оси длины. Длины диагоналей рассчитываются как ширина сечения в направлениях ±30° от продольной оси. Это геометрическая оценка, а не клинически подтверждённая разметка анатомических ориентиров.</p>
+        <p>Проверка топологии выявляет открытые и несогласованные рёбра, но не способна подтвердить полноту поверхности лба, затылка или основания черепа. Не используйте результат для постановки диагноза, шлемотерапии или иных лечебных решений.</p>
+      </section>
+    </main>
+
+    <footer><span>SAIGAK-ORTO · ЛОКАЛЬНЫЙ ИССЛЕДОВАТЕЛЬСКИЙ ПРОТОТИП</span><span>Методика v0.1.0 · модель ориентиров не обучена</span></footer>
+  </body>
+</html>
