@@ -1,0 +1,10 @@
+node_modules/
+# Raw 3D scans can contain sensitive biometric/clinical data.
+data/clinical-scans/
+data/training-stl/
+data/models/
+npm-debug.log*
+
+# Local expert labels and generated pseudo-labels can contain sensitive-derived data.
+data/*landmarks*.csv
+
